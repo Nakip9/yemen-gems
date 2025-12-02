@@ -1,0 +1,349 @@
+import React, { useRef, useState } from 'react';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { useLanguage } from '../components/Layout';
+import { content } from '../lib/data';
+import { Mail, MapPin, Send, CheckCircle, AlertCircle, Phone, MessageCircle } from 'lucide-react';
+import WhatsAppIcon from '../components/WhatsAppIcon';
+import SEO from '../components/SEO';
+import OptimizedImage from '../components/OptimizedImage';
+import emailjs from '@emailjs/browser';
+import confetti from 'canvas-confetti';
+
+const ContactPage: React.FC = () => {
+    const { language, dir } = useLanguage();
+    const t = content[language].contact;
+    const form = useRef<HTMLFormElement>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [lastSubmitTime, setLastSubmitTime] = useState<number>(0);
+
+    // Parallax effect for hero
+    const { scrollY } = useScroll();
+    const heroY = useTransform(scrollY, [0, 500], [0, 150]);
+    const heroOpacity = useTransform(scrollY, [0, 300], [1, 0]);
+
+    const sendEmail = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // 1. Rate Limiting (Client-side)
+        const now = Date.now();
+        if (now - lastSubmitTime < 60000) { // 60 seconds cooldown
+            alert(language === 'ar' ? 'يرجى الانتظار قبل إرسال رسالة أخرى.' : 'Please wait before sending another message.');
+            return;
+        }
+
+        // 2. Honeypot Check (Anti-Spam)
+        const honeypot = (e.target as HTMLFormElement).website_url.value;
+        if (honeypot) {
+            console.log("Bot detected!");
+            return; // Silently fail for bots
+        }
+
+        if (!form.current) return;
+
+        setIsSubmitting(true);
+
+        emailjs.sendForm(
+            process.env.REACT_APP_EMAILJS_SERVICE_ID!,
+            process.env.REACT_APP_EMAILJS_TEMPLATE_ID!,
+            form.current,
+            process.env.REACT_APP_EMAILJS_PUBLIC_KEY!
+        )
+            .then((result) => {
+                console.log(result.text);
+                setSubmitStatus('success');
+                setIsSubmitting(false);
+                setLastSubmitTime(Date.now());
+
+                // Trigger confetti
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+
+                // Reset form
+                if (form.current) form.current.reset();
+
+                // Reset status after 5 seconds
+                setTimeout(() => setSubmitStatus('idle'), 5000);
+            }, (error) => {
+                console.log(error.text);
+                setSubmitStatus('error');
+                setIsSubmitting(false);
+            });
+    };
+
+    return (
+        <div className="bg-neutral-light dark:bg-neutral-900 transition-colors duration-300 min-h-screen">
+            <SEO
+                title={language === 'ar' ? 'تواصل معنا' : 'Contact Us'}
+                description={language === 'ar' ? 'تواصل مع فريق جواهر اليمن.' : 'Contact the Yemen Gems team.'}
+            />
+
+            {/* Cinematic Hero Section */}
+            <div className="relative h-[70vh] md:h-[80vh] overflow-hidden">
+                {/* Background Image with Parallax */}
+                <motion.div
+                    style={{ y: heroY }}
+                    className="absolute inset-0 w-full h-[120%]"
+                >
+                    <OptimizedImage
+                        src="/images/socotra_dragon_tree_1764603178352.webp"
+                        alt="Contact Us"
+                        className="w-full h-full object-cover"
+                    />
+                </motion.div>
+
+                {/* Gradient Overlays */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-neutral-light dark:to-neutral-900" />
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20" />
+
+                {/* Hero Content */}
+                <motion.div
+                    style={{ opacity: heroOpacity }}
+                    className="relative z-10 container mx-auto px-4 h-full flex flex-col justify-center items-center text-center text-white"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8 }}
+                    >
+                        <motion.span
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.2 }}
+                            className="inline-block px-6 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-sm md:text-base font-bold mb-6"
+                        >
+                            {language === 'ar' ? '✨ دعنا نخطط لمغامرتك' : '✨ Let\'s Plan Your Adventure'}
+                        </motion.span>
+
+                        <h1 className="text-4xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight">
+                            {language === 'ar' ? 'تواصل معنا' : 'Get in Touch'}
+                        </h1>
+
+                        <p className="text-lg md:text-2xl text-white/90 max-w-2xl mx-auto mb-12 leading-relaxed">
+                            {language === 'ar'
+                                ? 'نحن هنا لتحويل حلمك إلى رحلة لا تُنسى'
+                                : 'We\'re here to turn your dream into an unforgettable journey'}
+                        </p>
+
+                        {/* Quick Contact Buttons */}
+                        <div className="flex flex-wrap gap-4 justify-center">
+                            <motion.a
+                                href={`https://wa.me/${t.info.phone.replace(/\D/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                whileHover={{ scale: 1.05, y: -2 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="inline-flex items-center gap-2 px-6 py-3 bg-[#25D366] text-white rounded-full font-bold shadow-lg hover:shadow-xl transition-all"
+                            >
+                                <MessageCircle size={20} />
+                                <span>{language === 'ar' ? 'واتساب' : 'WhatsApp'}</span>
+                            </motion.a>
+
+                            <motion.a
+                                href={`mailto:${t.info.email}`}
+                                whileHover={{ scale: 1.05, y: -2 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/30 text-white rounded-full font-bold hover:bg-white/20 transition-all"
+                            >
+                                <Mail size={20} />
+                                <span>{language === 'ar' ? 'إيميل' : 'Email'}</span>
+                            </motion.a>
+                        </div>
+                    </motion.div>
+                </motion.div>
+
+                {/* Scroll Indicator */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1.5 }}
+                    className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-white"
+                >
+                    <motion.div
+                        animate={{ y: [0, 10, 0] }}
+                        transition={{ repeat: Infinity, duration: 1.5 }}
+                        className="flex flex-col items-center gap-2"
+                    >
+                        <span className="text-sm opacity-80">{language === 'ar' ? 'مرر للأسفل' : 'Scroll Down'}</span>
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        </svg>
+                    </motion.div>
+                </motion.div>
+            </div>
+
+            <div className="container mx-auto px-4 py-20">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="max-w-4xl mx-auto"
+                >
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                        {/* Contact Info */}
+                        <div className="space-y-8">
+                            <div className="bg-white dark:bg-neutral-800 p-8 rounded-3xl shadow-lg border border-neutral-100 dark:border-neutral-700">
+                                <h3 className="text-2xl font-bold text-neutral-dark dark:text-white mb-8">
+                                    {language === 'ar' ? 'معلومات الاتصال' : 'Contact Information'}
+                                </h3>
+                                <div className="space-y-6">
+                                    <div className="flex items-start gap-4">
+                                        <div className="bg-primary/10 p-3 rounded-full">
+                                            <MapPin size={24} className="text-primary" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-neutral-dark dark:text-white mb-1">
+                                                {language === 'ar' ? 'العنوان' : 'Address'}
+                                            </h4>
+                                            <p className="text-neutral-dark/70 dark:text-gray-400">{t.info.address}</p>
+                                            <a
+                                                href={t.info.googleMaps}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-primary text-sm font-bold mt-2 inline-block hover:underline"
+                                            >
+                                                {language === 'ar' ? 'عرض على الخريطة' : 'View on Map'}
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-secondary/10 p-3 rounded-full">
+                                            <WhatsAppIcon size={24} />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-neutral-dark dark:text-white mb-1">
+                                                {language === 'ar' ? 'واتساب' : 'WhatsApp'}
+                                            </h4>
+                                            <p className="text-neutral-dark/70 dark:text-gray-400" dir="ltr">{t.info.phone}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-accent/10 p-3 rounded-full">
+                                            <Mail size={24} className="text-accent" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-neutral-dark dark:text-white mb-1">
+                                                {language === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                                            </h4>
+                                            <p className="text-neutral-dark/70 dark:text-gray-400">{t.info.email}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Contact Form */}
+                        <div className="bg-white dark:bg-neutral-800 p-8 rounded-3xl shadow-lg border border-neutral-100 dark:border-neutral-700 relative overflow-hidden">
+                            <form ref={form} onSubmit={sendEmail} className="space-y-6 relative z-10">
+                                {/* Honeypot Field (Hidden) */}
+                                <div className="hidden">
+                                    <label>
+                                        Don't fill this out if you're human:
+                                        <input name="website_url" type="text" tabIndex={-1} autoComplete="off" />
+                                    </label>
+                                </div>
+
+                                <div>
+                                    <label className="block text-neutral-dark dark:text-white font-bold mb-2">
+                                        {t.form.name}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="user_name"
+                                        required
+                                        className="w-full px-4 py-3 rounded-xl bg-neutral-light dark:bg-neutral-900 border-transparent focus:border-primary focus:bg-white dark:focus:bg-neutral-800 focus:ring-0 transition-all dark:text-white"
+                                        placeholder={language === 'ar' ? 'أدخل اسمك الكامل' : 'Enter your full name'}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-neutral-dark dark:text-white font-bold mb-2">
+                                        {t.form.email}
+                                    </label>
+                                    <input
+                                        type="email"
+                                        name="user_email"
+                                        required
+                                        className="w-full px-4 py-3 rounded-xl bg-neutral-light dark:bg-neutral-900 border-transparent focus:border-primary focus:bg-white dark:focus:bg-neutral-800 focus:ring-0 transition-all dark:text-white"
+                                        placeholder={language === 'ar' ? 'أدخل بريدك الإلكتروني' : 'Enter your email address'}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-neutral-dark dark:text-white font-bold mb-2">
+                                        {t.form.message}
+                                    </label>
+                                    <textarea
+                                        name="message"
+                                        required
+                                        rows={4}
+                                        className="w-full px-4 py-3 rounded-xl bg-neutral-light dark:bg-neutral-900 border-transparent focus:border-primary focus:bg-white dark:focus:bg-neutral-800 focus:ring-0 transition-all resize-none dark:text-white"
+                                        placeholder={language === 'ar' ? 'كيف يمكننا مساعدتك؟' : 'How can we help you?'}
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className={`w-full py-4 rounded-xl font-bold text-white transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl'
+                                        }`}
+                                >
+                                    {isSubmitting ? (
+                                        <span className="animate-pulse">
+                                            {language === 'ar' ? 'جاري الإرسال...' : 'Sending...'}
+                                        </span>
+                                    ) : (
+                                        <>
+                                            <Send size={20} className={dir === 'rtl' ? 'rotate-180' : ''} />
+                                            {t.form.submit}
+                                        </>
+                                    )}
+                                </button>
+
+                                {/* Status Messages */}
+                                <AnimatePresence>
+                                    {submitStatus === 'success' && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0 }}
+                                            className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800"
+                                        >
+                                            <CheckCircle size={20} />
+                                            <span>
+                                                {language === 'ar'
+                                                    ? 'تم إرسال رسالتك بنجاح! سنتواصل معك قريباً.'
+                                                    : 'Message sent successfully! We will contact you soon.'}
+                                            </span>
+                                        </motion.div>
+                                    )}
+                                    {submitStatus === 'error' && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0 }}
+                                            className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800"
+                                        >
+                                            <AlertCircle size={20} />
+                                            <span>
+                                                {language === 'ar'
+                                                    ? 'حدث خطأ أثناء الإرسال. يرجى المحاولة مرة أخرى.'
+                                                    : 'An error occurred. Please try again later.'}
+                                            </span>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </form>
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+        </div>
+    );
+};
+
+export default ContactPage;
